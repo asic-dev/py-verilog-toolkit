@@ -1,5 +1,7 @@
 from lark import Lark, Transformer, v_args
 
+from typing import Dict, List
+
 # http://www.verilog.com/VerilogBNF.html
 
 verilog_netlist_grammar = r"""
@@ -146,13 +148,48 @@ class IdentifierSliced:
 
 class ModuleInstance:
 
-    def __init__(self, module_name: str, instance_name: str, ports):
+    def __init__(self, module_name: str, instance_name: str, ports: Dict[str, str]):
         self.module_name = module_name
         self.instance_name = instance_name
         self.ports = ports
 
     def __repr__(self):
         return "ModuleInstance({}, {}, {})".format(self.module_name, self.instance_name, self.ports)
+
+
+class NetDeclaration:
+    def __init__(self, net_name: str, range: Range):
+        self.net_name = net_name
+        self.range = range
+
+    def __repr__(self):
+        if self.range is not None:
+            return "NetDeclaration({} {})".format(self.net_name, self.range)
+        else:
+            return "NetDeclaration({})".format(self.net_name)
+
+
+class Module:
+
+    def __init__(self, module_name: str, port_list: List[str], module_items: List):
+        self.module_name = module_name
+        self.port_list = port_list
+
+        self.module_items = module_items
+
+        self.net_declarations = []
+        self.module_instances = []
+
+        for it in module_items:
+            if isinstance(it, NetDeclaration):
+                self.net_declarations.append(it)
+            elif isinstance(it, ModuleInstance):
+                self.module_instances.append(it)
+
+            # TODO: also for input_declaration, output_declaration, continuous_assign
+
+    def __repr__(self):
+        return "Module({}, {}, {})".format(self.module_name, self.port_list, self.module_items)
 
 
 class VerilogTransformer(Transformer):
@@ -179,13 +216,46 @@ class VerilogTransformer(Transformer):
         return {port_name: expression}
 
     @v_args(inline=True)
-    def module_instantiation(self, module_name, *module_instances):
+    def assignment(self, left, right):
+        return "assignment", left, right
+
+    def list_of_assignments(self, args) -> List:
+        return list(args)
+
+    @v_args(inline=True)
+    def module(self, module_name, list_of_ports, *module_items):
+        # TODO: What happens if list_of_ports is not present?
+        items = []
+        for it in module_items:
+            if isinstance(it, list):
+                items.extend(it)
+            else:
+                items.append(it)
+
+        return Module(module_name, list_of_ports, items)
+
+    @v_args(inline=True)
+    def module_instantiation(self, module_name, *module_instances) -> List[ModuleInstance]:
         instances = []
         for module_instance in module_instances:
             instance_name, ports = module_instance
             instances.append(ModuleInstance(module_name, instance_name, ports))
 
         return instances
+
+    def net_declaration(self, args) -> List[NetDeclaration]:
+
+        if len(args) > 0 and isinstance(args[0], Range):
+            _range = args[0]
+            variable_names = args[1:]
+        else:
+            _range = None
+            variable_names = args
+
+        declarations = []
+        for name in variable_names:
+            declarations.append(NetDeclaration(name, _range))
+        return declarations
 
     def list_of_module_connections(self, module_connections):
         connections = dict()
@@ -276,4 +346,5 @@ def test_parse_verilog2():
     data = test_data.verilog_netlist()
 
     netlist = parse_verilog(data)
-    print(netlist.pretty())
+    print(netlist)
+    # print(netlist.pretty())
