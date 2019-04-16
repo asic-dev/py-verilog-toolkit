@@ -271,9 +271,9 @@ endmodule
 
 
 def test_parse_verilog2():
-    from .. import data
+    from . import test_data
 
-    data = data.verilog_netlist()
+    data = test_data.verilog_netlist()
 
     netlist = parse_verilog(data)
     print(netlist.pretty())
