@@ -125,6 +125,9 @@ class Number:
 
         return int(self.mantissa, base=int_base)
 
+    def __int__(self):
+        return self.as_integer()
+
     def as_bits_lsb_first(self):
         """
         Get integer value as a list of bits.
