@@ -125,6 +125,34 @@ class Number:
 
         return int(self.mantissa, base=int_base)
 
+    def as_bits_lsb_first(self):
+        """
+        Get integer value as a list of bits.
+        If the length of the Number is not None then the list is either extended or truncated to the given length.
+        Extension is sign extended.
+        :return:
+        """
+        value = self.as_integer()
+        x = value
+        bits = []
+        while x != 0:
+            bits.append(x & 1)
+            x //= 2
+
+        if self.length is not None:
+            if len(bits) < self.length:
+                sign = 1 if value < 0 else 0
+                # Extend.
+                bits.extend([sign] * (self.length - len(bits)))
+            elif len(bits) > self.length:
+                # Truncate
+                bits = bits[0:self.length]
+
+        return bits
+
+    def as_bits_msb_first(self):
+        return list(reversed(self.as_bits_lsb_first()))
+
     def __repr__(self):
         if self.base is None:
             return "{}".format(self.as_integer())
@@ -133,6 +161,13 @@ class Number:
         else:
             return "{}'{}{}".format(self.length, self.base, self.mantissa)
 
+
+def test_class_number():
+    assert Number(None, None, '12').as_bits_lsb_first() == [0, 0, 1, 1]
+    assert Number(None, None, '12').as_bits_msb_first() == [1, 1, 0, 0]
+    assert Number(5, None, '12').as_bits_msb_first() == [0, 1, 1, 0, 0]
+    assert Number(3, None, '12').as_bits_msb_first() == [1, 0, 0]
+    assert Number(3, 'h', 'c').as_bits_msb_first() == [1, 0, 0]
 
 
 class Range:
