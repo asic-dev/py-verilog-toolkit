@@ -1,6 +1,6 @@
 from lark import Lark, Transformer, v_args
 
-from typing import Dict, List
+from typing import Dict, List, Tuple, Optional
 
 # http://www.verilog.com/VerilogBNF.html
 
@@ -32,7 +32,7 @@ verilog_netlist_grammar = r"""
     
     assignment: lvalue "=" expression
     
-    lvalue: identifier
+    ?lvalue: identifier
         | identifier_indexed
         | identifier_sliced
         | concatenation
@@ -45,7 +45,7 @@ verilog_netlist_grammar = r"""
         | concatenation
         | number
     
-    identifier_indexed: identifier "[" uint "]"
+    identifier_indexed: identifier "[" number "]"
     identifier_sliced: identifier range
     
     module_instantiation: identifier module_instance ("," module_instance)* ";"
@@ -61,20 +61,24 @@ verilog_netlist_grammar = r"""
     
     identifier: CNAME
     
-    ?range: "[" uint ":" uint "]"
+    ?range: "[" number ":" number "]"
     
     ?list_of_variables: identifier ("," identifier)*
 
     string: ESCAPED_STRING
 
     // FIXME TODO: Use INT
-    uint: SIGNED_NUMBER
+    unsigned_hex_str: HEXDIGIT+
+    signed_hex_str: ( "-" | "+" ) unsigned_hex_str
     
-    number: uint base uint -> number_explicit_length
-        | base uint -> number_implicit_length
+    number: 
+        | unsigned_hex_str -> number
+        | signed_hex_str -> number
+        | unsigned_hex_str base unsigned_hex_str -> number_explicit_length
+        | base unsigned_hex_str -> number_implicit_length
     
     base: BASE
-    BASE: "'b" | "'B" | "'h" | "'H'"
+    BASE: "'b" | "'B" | "'h" | "'H" | "'o" | "'O'" | "'d" | "'D"
 
     COMMENT_SLASH: /\/\*(\*(?!\/)|[^*])*\*\//
     COMMENT_BRACE: /\(\*(\*(?!\))|[^*])*\*\)/
@@ -84,16 +88,51 @@ verilog_netlist_grammar = r"""
     %import common.WORD
     %import common.ESCAPED_STRING
     %import common.CNAME
-    %import common.SIGNED_NUMBER
-    %import common.INT
-    %import common.SIGNED_INT
+    //%import common.SIGNED_NUMBER
+    //%import common.INT
+    //%import common.SIGNED_INT
     %import common.WS
+    %import common.HEXDIGIT
 
     %ignore WS
     %ignore COMMENT_SLASH
     %ignore COMMENT_BRACE
     %ignore NEWLINE
 """
+
+
+class Number:
+    def __init__(self, length: Optional[int], base: str, mantissa: str):
+        assert isinstance(mantissa, str), "Mantissa is expected to be a string."
+        self.length = length
+        self.base = base
+        self.mantissa = mantissa
+
+    def as_integer(self):
+        base_map = {
+            'h': 16,
+            'b': 2,
+            'd': 10,
+            'o': 8
+        }
+
+        if self.base is None:
+            int_base = 10
+        else:
+            base = self.base.lower()
+            assert base in base_map, "Unknown base: '{}'".format(base)
+            int_base = base_map[base]
+
+        return int(self.mantissa, base=int_base)
+
+    def __repr__(self):
+        if self.base is None:
+            return "{}".format(self.as_integer())
+        elif self.length is None:
+            return "'{}{}".format(self.base, self.mantissa)
+        else:
+            return "{}'{}{}".format(self.length, self.base, self.mantissa)
+
 
 
 class Range:
@@ -169,6 +208,15 @@ class NetDeclaration:
             return "NetDeclaration({})".format(self.net_name)
 
 
+class ContinuousAssign:
+    def __init__(self, assignments: List[Tuple[str, str]]):
+        self.assignments = assignments
+
+    def __repr__(self):
+        return "ContinuousAssign({})" \
+            .format(", ".join(("{} = {}".format(l, r) for l, r in self.assignments)))
+
+
 class Module:
 
     def __init__(self, module_name: str, port_list: List[str], module_items: List):
@@ -179,12 +227,15 @@ class Module:
 
         self.net_declarations = []
         self.module_instances = []
+        self.assignments = []
 
         for it in module_items:
             if isinstance(it, NetDeclaration):
                 self.net_declarations.append(it)
             elif isinstance(it, ModuleInstance):
                 self.module_instances.append(it)
+            elif isinstance(it, ContinuousAssign):
+                self.assignments.append(it)
 
             # TODO: also for input_declaration, output_declaration, continuous_assign
 
@@ -194,6 +245,13 @@ class Module:
 
 class VerilogTransformer(Transformer):
     list_of_ports = list
+
+    def unsigned_hex_str(self, hexstr):
+        return "".join((str(h) for h in hexstr))
+
+    @v_args(inline=True)
+    def signed_hex_str(self, sign, hexstr):
+        return sign + hexstr
 
     @v_args(inline=True)
     def identifier(self, identifier):
@@ -217,10 +275,13 @@ class VerilogTransformer(Transformer):
 
     @v_args(inline=True)
     def assignment(self, left, right):
-        return "assignment", left, right
+        return left, right
 
     def list_of_assignments(self, args) -> List:
-        return list(args)
+        return list(args[0])
+
+    def continuous_assign(self, assignments):
+        return ContinuousAssign(assignments)
 
     @v_args(inline=True)
     def module(self, module_name, list_of_ports, *module_items):
@@ -272,16 +333,16 @@ class VerilogTransformer(Transformer):
         return Range(start, end)
 
     @v_args(inline=True)
-    def uint(self, s) -> int:
-        return int(s)
+    def number(self, string):
+        return Number(None, None, string)
 
     @v_args(inline=True)
     def number_explicit_length(self, length, base, mantissa):
-        return (length, base, mantissa)
+        return Number(length, base, mantissa)
 
     @v_args(inline=True)
     def number_implicit_length(self, base, mantissa):
-        return (base, mantissa)
+        return Number(None, base, mantissa)
 
     @v_args(inline=False)
     def concatenation(self, l):
