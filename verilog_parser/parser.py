@@ -102,7 +102,7 @@ verilog_netlist_grammar = r"""
 
 
 class Number:
-    def __init__(self, length: Optional[int], base: str, mantissa: str):
+    def __init__(self, length: Optional[int], base: Optional[str], mantissa: str):
         assert isinstance(mantissa, str), "Mantissa is expected to be a string."
         self.length = length
         self.base = base
