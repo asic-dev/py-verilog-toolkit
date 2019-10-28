@@ -382,7 +382,6 @@ class VerilogTransformer(Transformer):
     def number_implicit_length(self, base, mantissa):
         return Number(None, base, mantissa)
 
-    @v_args(inline=False)
     def concatenation(self, l):
         result = []
         for x in l:
