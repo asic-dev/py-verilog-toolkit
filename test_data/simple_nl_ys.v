@@ -528,3 +528,6 @@ module alu_shift(clk_i, rst_ni, hb_en_i, wb_en_i, op_a_i, func_i, cy_i, res_o, e
   assign zero_res = res_o[6];
   assign zero_set = res_o[7];
 endmodule
+
+module dummy(a, b, c);
+endmodule

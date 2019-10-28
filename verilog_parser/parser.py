@@ -3,9 +3,10 @@ from lark import Lark, Transformer, v_args
 from typing import Dict, List, Tuple, Optional
 
 # http://www.verilog.com/VerilogBNF.html
+# http://www.externsoft.ch/download/verilog.html
 
 verilog_netlist_grammar = r"""
-    ?start: description*
+    start: description*
     
     ?description: module
     
@@ -391,8 +392,14 @@ class VerilogTransformer(Transformer):
                 result.append(x)
         return result
 
+    def start(self, description):
+        if isinstance(description, list):
+            return description
+        else:
+            return [description]
 
-def parse_verilog(data: str):
+
+def parse_verilog(data: str) -> List[Module]:
     """
     Parse a string containing data of a verilog file.
     :param data: Raw verilog string.
@@ -404,6 +411,9 @@ def parse_verilog(data: str):
                           transformer=VerilogTransformer()
                           )
     netlist = verilog_parser.parse(data)
+
+    assert isinstance(netlist, list)
+
     return netlist
 
 
@@ -444,5 +454,5 @@ def test_parse_verilog2():
     data = test_data.verilog_netlist()
 
     netlist = parse_verilog(data)
-    print(netlist)
+    # print(netlist)
     # print(netlist.pretty())
