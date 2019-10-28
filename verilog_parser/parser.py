@@ -256,14 +256,6 @@ class ContinuousAssign:
             .format(", ".join(("{} = {}".format(l, r) for l, r in self.assignments)))
 
 
-class Netlist:
-    def __init__(self, modules: List):
-        self.modules = modules
-
-    def __repr__(self):
-        return "Netlist({})".format(self.modules)
-
-
 class Module:
 
     def __init__(self, module_name: str, port_list: List[str], module_items: List):
@@ -288,6 +280,14 @@ class Module:
 
     def __repr__(self):
         return "Module({}, {}, {})".format(self.module_name, self.port_list, self.module_items)
+
+
+class Netlist:
+    def __init__(self, modules: List[Module]):
+        self.modules = modules
+
+    def __repr__(self):
+        return "Netlist({})".format(self.modules)
 
 
 class VerilogTransformer(Transformer):
