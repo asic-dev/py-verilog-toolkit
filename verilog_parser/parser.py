@@ -256,6 +256,14 @@ class ContinuousAssign:
             .format(", ".join(("{} = {}".format(l, r) for l, r in self.assignments)))
 
 
+class Netlist:
+    def __init__(self, modules: List):
+        self.modules = modules
+
+    def __repr__(self):
+        return "Netlist({})".format(self.modules)
+
+
 class Module:
 
     def __init__(self, module_name: str, port_list: List[str], module_items: List):
@@ -394,12 +402,12 @@ class VerilogTransformer(Transformer):
 
     def start(self, description):
         if isinstance(description, list):
-            return description
+            return Netlist(description)
         else:
-            return [description]
+            return Netlist([description])
 
 
-def parse_verilog(data: str) -> List[Module]:
+def parse_verilog(data: str) -> Netlist:
     """
     Parse a string containing data of a verilog file.
     :param data: Raw verilog string.
@@ -412,7 +420,7 @@ def parse_verilog(data: str) -> List[Module]:
                           )
     netlist = verilog_parser.parse(data)
 
-    assert isinstance(netlist, list)
+    assert isinstance(netlist.modules, list)
 
     return netlist
 
