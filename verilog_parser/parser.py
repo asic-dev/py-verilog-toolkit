@@ -247,11 +247,7 @@ class NetDeclaration:
             return "NetDeclaration({})".format(self.net_name)
 
 
-class OutputDeclaration:
-    def __init__(self, net_name: str, range: Range):
-        self.net_name = net_name
-        self.range = range
-
+class OutputDeclaration(NetDeclaration):
     def __repr__(self):
         if self.range is not None:
             return "OutputDeclaration({} {})".format(self.net_name, self.range)
@@ -259,11 +255,7 @@ class OutputDeclaration:
             return "OutputDeclaration({})".format(self.net_name)
 
 
-class InputDeclaration:
-    def __init__(self, net_name: str, range: Range):
-        self.net_name = net_name
-        self.range = range
-
+class InputDeclaration(NetDeclaration):
     def __repr__(self):
         if self.range is not None:
             return "InputDeclaration({} {})".format(self.net_name, self.range)
