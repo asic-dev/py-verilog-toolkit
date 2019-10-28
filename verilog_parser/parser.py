@@ -247,6 +247,30 @@ class NetDeclaration:
             return "NetDeclaration({})".format(self.net_name)
 
 
+class OutputDeclaration:
+    def __init__(self, net_name: str, range: Range):
+        self.net_name = net_name
+        self.range = range
+
+    def __repr__(self):
+        if self.range is not None:
+            return "OutputDeclaration({} {})".format(self.net_name, self.range)
+        else:
+            return "OutputDeclaration({})".format(self.net_name)
+
+
+class InputDeclaration:
+    def __init__(self, net_name: str, range: Range):
+        self.net_name = net_name
+        self.range = range
+
+    def __repr__(self):
+        if self.range is not None:
+            return "InputDeclaration({} {})".format(self.net_name, self.range)
+        else:
+            return "InputDeclaration({})".format(self.net_name)
+
+
 class ContinuousAssign:
     def __init__(self, assignments: List[Tuple[str, str]]):
         self.assignments = assignments
@@ -265,12 +289,18 @@ class Module:
         self.module_items = module_items
 
         self.net_declarations = []
+        self.output_declarations = []
+        self.input_declarations = []
         self.module_instances = []
         self.assignments = []
 
         for it in module_items:
             if isinstance(it, NetDeclaration):
                 self.net_declarations.append(it)
+            elif isinstance(it, InputDeclaration):
+                self.input_declarations.append(it)
+            elif isinstance(it, OutputDeclaration):
+                self.output_declarations.append(it)
             elif isinstance(it, ModuleInstance):
                 self.module_instances.append(it)
             elif isinstance(it, ContinuousAssign):
@@ -363,6 +393,34 @@ class VerilogTransformer(Transformer):
         declarations = []
         for name in variable_names:
             declarations.append(NetDeclaration(name, _range))
+        return declarations
+
+    def output_declaration(self, args) -> List[OutputDeclaration]:
+
+        if len(args) > 0 and isinstance(args[0], Range):
+            _range = args[0]
+            variable_names = args[1:]
+        else:
+            _range = None
+            variable_names = args
+
+        declarations = []
+        for name in variable_names:
+            declarations.append(OutputDeclaration(name, _range))
+        return declarations
+
+    def input_declaration(self, args) -> List[InputDeclaration]:
+
+        if len(args) > 0 and isinstance(args[0], Range):
+            _range = args[0]
+            variable_names = args[1:]
+        else:
+            _range = None
+            variable_names = args
+
+        declarations = []
+        for name in variable_names:
+            declarations.append(InputDeclaration(name, _range))
         return declarations
 
     def list_of_module_connections(self, module_connections):
