@@ -105,6 +105,7 @@ verilog_netlist_grammar = r"""
 class Number:
     def __init__(self, length: Optional[int], base: Optional[str], mantissa: str):
         assert isinstance(mantissa, str), "Mantissa is expected to be a string."
+        assert length is None or isinstance(length, int)
         self.length = length
         self.base = base
         self.mantissa = mantissa
@@ -180,6 +181,13 @@ class Range:
         self.start = start
         self.end = end
 
+    def to_indices(self):
+        """
+        Convert to list of indices in the range.
+        :return:
+        """
+        return list(reversed(range(self.end.as_integer(), self.start.as_integer())))
+
     def __repr__(self):
         return "[{}:{}]".format(self.start, self.end)
 
@@ -204,9 +212,18 @@ class Vec:
 #         return ".{}({})".format(self.port_name, self.signal_name)
 
 
+class Identifier:
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def __repr__(self):
+        return self.name
+
+
 class IdentifierIndexed:
 
-    def __init__(self, name, index):
+    def __init__(self, name: str, index):
         self.name = name
         self.index = index
 
@@ -216,7 +233,7 @@ class IdentifierIndexed:
 
 class IdentifierSliced:
 
-    def __init__(self, name, range):
+    def __init__(self, name: str, range: Range):
         self.name = name
         self.range = range
 
@@ -265,6 +282,7 @@ class InputDeclaration(NetDeclaration):
 
 class ContinuousAssign:
     def __init__(self, assignments: List[Tuple[str, str]]):
+        assert isinstance(assignments, list)
         self.assignments = assignments
 
     def __repr__(self):
@@ -287,12 +305,12 @@ class Module:
         self.assignments = []
 
         for it in module_items:
-            if isinstance(it, NetDeclaration):
-                self.net_declarations.append(it)
+            if isinstance(it, OutputDeclaration):
+                self.output_declarations.append(it)
             elif isinstance(it, InputDeclaration):
                 self.input_declarations.append(it)
-            elif isinstance(it, OutputDeclaration):
-                self.output_declarations.append(it)
+            elif isinstance(it, NetDeclaration):
+                self.net_declarations.append(it)
             elif isinstance(it, ModuleInstance):
                 self.module_instances.append(it)
             elif isinstance(it, ContinuousAssign):
@@ -435,6 +453,7 @@ class VerilogTransformer(Transformer):
 
     @v_args(inline=True)
     def number_explicit_length(self, length, base, mantissa):
+        length = int(length)
         return Number(length, base, mantissa)
 
     @v_args(inline=True)
