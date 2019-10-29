@@ -186,7 +186,7 @@ class Range:
         Convert to list of indices in the range.
         :return:
         """
-        return list(reversed(range(self.end.as_integer(), self.start.as_integer())))
+        return list(reversed(range(self.end.as_integer(), self.start.as_integer()+1, -1)))
 
     def __repr__(self):
         return "[{}:{}]".format(self.start, self.end)
