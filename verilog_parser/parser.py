@@ -303,6 +303,7 @@ class Module:
         self.input_declarations = []
         self.module_instances = []
         self.assignments = []
+        self.sub_modules = []
 
         for it in module_items:
             if isinstance(it, OutputDeclaration):
@@ -315,8 +316,8 @@ class Module:
                 self.module_instances.append(it)
             elif isinstance(it, ContinuousAssign):
                 self.assignments.append(it)
-
-            # TODO: also for input_declaration, output_declaration, continuous_assign
+            elif isinstance(it, Module):
+                self.sub_modules.append(it)
 
     def __repr__(self):
         return "Module({}, {}, {})".format(self.module_name, self.port_list, self.module_items)
