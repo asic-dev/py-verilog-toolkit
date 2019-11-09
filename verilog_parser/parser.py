@@ -1,6 +1,6 @@
 from lark import Lark, Transformer, v_args
 
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union
 
 # http://www.verilog.com/VerilogBNF.html
 # http://www.externsoft.ch/download/verilog.html
@@ -21,6 +21,7 @@ verilog_netlist_grammar = r"""
         | net_declaration
         | continuous_assign
         | module_instantiation
+        
     input_declaration: "input" range? list_of_variables ";"
     
     output_declaration: "output" range? list_of_variables ";"
@@ -186,7 +187,7 @@ class Range:
         Convert to list of indices in the range.
         :return:
         """
-        return list(reversed(range(self.end.as_integer(), self.start.as_integer()+1)))
+        return list(reversed(range(self.end.as_integer(), self.start.as_integer() + 1)))
 
     def __repr__(self):
         return "[{}:{}]".format(self.start, self.end)
@@ -239,6 +240,15 @@ class IdentifierSliced:
 
     def __repr__(self):
         return "{}{}".format(self.name, self.range)
+
+
+class Concatenation:
+
+    def __init__(self, elements: List[Union[Identifier, IdentifierIndexed, IdentifierSliced]]):
+        self.elements = elements
+
+    def __repr__(self):
+        return "Concatenation()".format(", ".join([str(e) for e in self.elements]))
 
 
 class ModuleInstance:
@@ -461,14 +471,14 @@ class VerilogTransformer(Transformer):
     def number_implicit_length(self, base, mantissa):
         return Number(None, base, mantissa)
 
-    def concatenation(self, l):
+    def concatenation(self, l) -> Concatenation:
         result = []
         for x in l:
-            if isinstance(x, list):
-                result.extend(x)
+            if isinstance(x, Concatenation):
+                result.extend(x.elements)
             else:
                 result.append(x)
-        return result
+        return Concatenation(result)
 
     def start(self, description):
         if isinstance(description, list):
