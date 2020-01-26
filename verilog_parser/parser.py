@@ -84,6 +84,7 @@ verilog_netlist_grammar = r"""
 
     COMMENT_SLASH: /\/\*(\*(?!\/)|[^*])*\*\//
     COMMENT_BRACE: /\(\*(\*(?!\))|[^*])*\*\)/
+    COMMENT_LINE: /\/\/.*/
     
     NEWLINE: /\\?\r?\n/
 
@@ -99,6 +100,7 @@ verilog_netlist_grammar = r"""
     %ignore WS
     %ignore COMMENT_SLASH
     %ignore COMMENT_BRACE
+    %ignore COMMENT_LINE
     %ignore NEWLINE
 """
 
@@ -330,7 +332,12 @@ class Module:
                 self.sub_modules.append(it)
 
     def __repr__(self):
-        return "Module({}, {}, {})".format(self.module_name, self.port_list, self.module_items)
+#        return "Module({}, {}, {})".format(self.module_name, self.port_list, self.module_items)
+        #TODO: data output is not yet complete
+        return "Module({}, {}, {}, {})".format(self.module_name,
+                                               self.port_list,
+                                               self.net_declarations,
+                                               self.module_instances)
 
 
 class Netlist:
@@ -486,13 +493,32 @@ class VerilogTransformer(Transformer):
         else:
             return Netlist([description])
 
+# copied from https://github.com/geographika/mappyfile/blob/master/mappyfile/parser.py#L51
+def load_includes(text):
+    lines = text.split('\n')
+    includes = {}
+    for idx, l in enumerate(lines):
+        if l.strip().lower().startswith("`include"):
+            # recursively load any further includes
+            #includes[idx] = self.load_includes(include_text, fn=fn, _nested_includes=_nested_includes+1)
+            #TODO: implement recursive loading of include files
+            includes[idx] = "\n"
+            print("found include:",l)
 
+    for idx, txt in includes.items():
+        lines.pop(idx)  # remove the original include
+        lines.insert(idx, txt)
+    return '\n'.join(lines)
+    
 def parse_verilog(data: str) -> Netlist:
     """
     Parse a string containing data of a verilog file.
     :param data: Raw verilog string.
     :return:
     """
+    
+    data = load_includes(data)
+    
     verilog_parser = Lark(verilog_netlist_grammar,
                           parser='lalr',
                           lexer='standard',
