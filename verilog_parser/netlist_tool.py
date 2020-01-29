@@ -53,6 +53,10 @@ class netlist_tool:
         self.netlist = netlist
         self.ref_list = ref_list_obj()
         self.lib = None
+
+        self.module_list = {}
+        for module in self.netlist.modules:
+            self.module_list[module.module_name] = module
         
     def extract_refs(self):
         print("extract referenced cells")
@@ -83,6 +87,16 @@ class netlist_tool:
             print("ERROR: could not open liberty file")
             return()
         self.lib = library
+        
+    def export_upf(self,module):
+        if module not in self.module_list:
+            raise Exception("module " + module + " does not exist")
+        else:
+            print("export UPF of module ",module)
+            for output in self.module_list[module].output_declarations:
+                print("  output:",output)
+            for input in self.module_list[module].input_declarations:
+                print("  input:",input)
         
     def export(self):
         result = "/* export netlist */\n\n"
