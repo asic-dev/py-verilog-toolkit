@@ -6,7 +6,7 @@ class ref_obj:
         self.inst_list = {}
         self.inst_list[ref] = inst
         self.lib_ref = None
-
+ 
     def add(self,ref,inst):
         self.inst_list[ref] = inst
         
@@ -16,6 +16,9 @@ class ref_obj:
         pg_pins = self.lib_ref.get_groups('pg_pin')
         for pg_pin in pg_pins:
             print("    pg_pin:",pg_pin.args[0])
+            
+            for inst in self.inst_list:
+                print("      connected supply net:",self.inst_list[inst].ports[pg_pin.args[0]])
         
         pins = self.lib_ref.get_groups('pin')
         for pin in pins:
