@@ -95,8 +95,30 @@ class netlist_tool:
             print("export UPF of module ",module)
             for output in self.module_list[module].output_declarations:
                 print("  output:",output)
+                
+                wire = output.net_name
+                print("    connected wire:",wire)
+                
+                for inst in self.module_list[module].module_instances:
+#                    print("      inst:",inst)
+                    for port in inst.ports:
+#                        print("        port:",port,"->",inst.ports[port])
+                        if inst.ports[port] == wire:
+                            print("      connected instance:",inst," port: ",port)
+                    
+
             for input in self.module_list[module].input_declarations:
                 print("  input:",input)
+
+                wire = input.net_name
+                print("    connected wire:",wire)
+                
+                for inst in self.module_list[module].module_instances:
+#                    print("      inst:",inst)
+                    for port in inst.ports:
+#                        print("        port:",port,"->",inst.ports[port])
+                        if inst.ports[port] == wire:
+                            print("      connected instance:",inst," port: ",port)
         
     def export(self):
         result = "/* export netlist */\n\n"
