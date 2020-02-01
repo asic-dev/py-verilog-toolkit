@@ -1,5 +1,15 @@
 from liberty.parser import parse_liberty
 
+class result_string_obj:
+    def __init__(self,header):
+        self.result = header
+
+    def append(self,string):
+        self.result += string
+
+    def __repr__(self):
+        return self.result
+
 class mod_obj:
     
     def __init__(self,module):
@@ -16,8 +26,7 @@ class mod_obj:
         self.pg_nets[pg_net]="primary"
         
     def export_upf(self):
-        print ("export UPF for module",self.id)
-        print ("  ref_list",self.ref_list)
+        result = result_string_obj("# export UPF\n\n")
 
         module = self.module
         for output in module.output_declarations:
@@ -42,7 +51,10 @@ class mod_obj:
                         print("      connected instance:",inst," port: ",port)
                         
         for pg_net in self.pg_nets:
-            print("pg_net:",pg_net)
+            result.append("create_supply_port {}\n".format(pg_net))
+            result.append("create_supply_net  {}\n\n".format(pg_net))
+            
+        return(result)
 
 class ref_obj:
     
@@ -145,11 +157,12 @@ class netlist_tool:
             raise Exception("module " + module + " does not exist")
         else:
             print("export UPF of module ",module)
-            self.module_list[module].export_upf()
+            return(self.module_list[module].export_upf())
             
         
     def export(self):
         result = "/* export netlist */\n\n"
+        res_obj = result_string_obj("/* export netlist */\n\n")
         
         for module in self.netlist.modules:
             result += "module "

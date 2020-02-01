@@ -22,8 +22,7 @@ assert(str(netlist) == str(netlist_reimport))
 design.load_lib("../test_data/ls.lib")
 design.extract_refs()
 
-#design.export_upf("test")
-design.export_upf("pg_netlist")
+upf = design.export_upf("pg_netlist")
 
-#print(design.lib)
+print(upf)
     
