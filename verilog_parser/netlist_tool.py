@@ -50,19 +50,22 @@ class mod_obj:
                     if inst.ports[port] == wire:
                         print("      connected instance:",inst," port: ",port)
                         
+        result.append("\n##############")
+        result.append("\n# supply ports")
+        result.append("\n##############\n\n")
         for pg_net in self.pg_nets:
             result.append("create_supply_port {}\n".format(pg_net))
             result.append("create_supply_net  {}\n".format(pg_net))
             result.append("connect_supply_net {} -ports {}\n\n".format(pg_net,pg_net))
             
-        for inst in self.module.module_instances:
-            print(" instance:",inst)
-        
+        result.append("\n################################")
+        result.append("\n# power connections of instances")
+        result.append("\n################################\n\n")
         for cell_ref in self.ref_list:
             print(" cell_ref:",cell_ref)
             for inst in cell_ref.inst_list:
                 for pg_pin in cell_ref.pg_pins:
-                    result.append("# connect_supply_net -ports {}/{}\n".format(inst,pg_pin))
+                    result.append("connect_supply_net {} -ports {}/{}\n".format(cell_ref.inst_list[inst].ports[pg_pin],inst,pg_pin))
                 result.append("\n")
             
         return(result)
