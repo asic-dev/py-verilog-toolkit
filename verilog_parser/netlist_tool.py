@@ -18,7 +18,7 @@ class mod_obj:
 
         self.ref_list = ref_list_obj(self)
         for inst in module.module_instances:
-            self.ref_list.add(self.id,inst)
+            self.ref_list.add(inst)
             
         self.pg_nets = {}
         
@@ -52,20 +52,32 @@ class mod_obj:
                         
         for pg_net in self.pg_nets:
             result.append("create_supply_port {}\n".format(pg_net))
-            result.append("create_supply_net  {}\n\n".format(pg_net))
+            result.append("create_supply_net  {}\n".format(pg_net))
+            result.append("connect_supply_net {} -ports {}\n\n".format(pg_net,pg_net))
+            
+        for inst in self.module.module_instances:
+            print(" instance:",inst)
+        
+        for cell_ref in self.ref_list:
+            print(" cell_ref:",cell_ref)
+            for inst in cell_ref.inst_list:
+                for pg_pin in cell_ref.pg_pins:
+                    result.append("# connect_supply_net -ports {}/{}\n".format(inst,pg_pin))
+                result.append("\n")
             
         return(result)
 
 class ref_obj:
     
-    def __init__(self,parent,ref,inst):
+    def __init__(self,parent,inst):
         self.inst_list = {}
-        self.inst_list[ref] = inst
+        self.add(inst)
         self.lib_ref = None
         self.parent = parent
+        self.pg_pins = {}
  
-    def add(self,ref,inst):
-        self.inst_list[ref] = inst
+    def add(self,inst):
+        self.inst_list[inst.instance_name] = inst
         
     def add_lib_ref(self,cell):
         self.lib_ref = cell
@@ -73,6 +85,7 @@ class ref_obj:
         pg_pins = self.lib_ref.get_groups('pg_pin')
         for pg_pin in pg_pins:
             print("    pg_pin:",pg_pin.args[0])
+            self.pg_pins[pg_pin.args[0]] = "tbd function"
             
             for inst in self.inst_list:
                 print("      connected supply net:",self.inst_list[inst].ports[pg_pin.args[0]])
@@ -83,7 +96,7 @@ class ref_obj:
             print("    pin:",pin.args[0])
         
     def __repr__(self):
-        return "inst_list({})".format(self.inst_list)
+        return "pg_pins({}),inst_list({})".format(self.pg_pins,self.inst_list)
 
 class ref_list_obj:
     
@@ -92,19 +105,27 @@ class ref_list_obj:
         self.ref_obj_list = {}
         self.parent = parent
         
-    def add(self,scope,inst):
+    def add(self,inst):
         module = inst.module_name
-        instance = inst.instance_name
-        ref = scope+"."+instance
         if module in self.ref_obj_list:
-            self.ref_obj_list[module].add(ref,inst)
+            self.ref_obj_list[module].add(inst)
         else:
-            self.ref_obj_list[module]=ref_obj(self.parent,ref,inst)
+            self.ref_obj_list[module]=ref_obj(self.parent,inst)
 
     def add_lib_ref(self,cell_name,cell):
         if cell_name in self.ref_obj_list:
             print("add_lib_ref:",cell_name)
             self.ref_obj_list[cell_name].add_lib_ref(cell)
+
+    def __iter__(self):
+        self.iter_keys = list(self.ref_obj_list.keys())
+        return(self)
+
+    def __next__(self):
+        try:
+            return(self.ref_obj_list[self.iter_keys.pop()])
+        except IndexError:
+            raise StopIteration
 
     def __repr__(self):
         return "ref_list({})".format(self.ref_obj_list)
@@ -123,9 +144,8 @@ class netlist_tool:
     def extract_refs(self):
         print("extract referenced cells")
         for module in self.netlist.modules:
-            current_scope = module.module_name
             for inst in module.module_instances:
-                self.ref_list.add(current_scope,inst)
+                self.ref_list.add(inst)
                     
             print(self.ref_list)
             
