@@ -27,22 +27,23 @@ class mod_obj:
         
     def get_ref(self,inst):
         return(self.ref_list.get(inst.module_name))
+    
+    def get_related_supply_set(self,net):
+        for inst in self.module.module_instances:
+            for port in inst.ports:
+                if inst.ports[port] == net:
+                    ref = self.get_ref(inst).pins[port]
+                    if "related_power_pin" in ref:
+                        related_power_net = inst.ports[ref["related_power_pin"]]
+                        if "related_ground_pin" in ref:
+                            related_ground_net = inst.ports[ref["related_ground_pin"]]
+                            return("SS_"+related_power_net+"_"+related_ground_net)
+        print("Error: could not extract supply set of net {}!".format(net))
+        raise
         
     def export_upf(self):
         result = result_string_obj("# export UPF\n\n")
 
-        module = self.module
-        for output in module.output_declarations:
-            print("  output:",output)
-            wire = output.net_name
-            print("    connected wire:",wire)
-            
-            for inst in module.module_instances:
-                for port in inst.ports:
-                    if inst.ports[port] == wire:
-                        print("      connected instance:",inst," port: ",port)
-
-                        
         result.append("\n##############")
         result.append("\n# supply ports")
         result.append("\n##############\n\n")
@@ -52,30 +53,15 @@ class mod_obj:
             result.append("connect_supply_net {} -ports {}\n\n".format(pg_net,pg_net))
             
 
-        #iterate over module inputs
-        #check that it is a signal port
-        #extract connected instance
-        #derive related supply port
+        module = self.module
+        for module_output in module.output_declarations:
+            result.append("# output  {} {}\n".format(module_output.net_name,
+                                                     self.get_related_supply_set(module_output.net_name)))
+
         for module_input in module.input_declarations:
             if not (module_input.net_name in self.pg_nets):
-                print("  input:",module_input.net_name)
-
-                for inst in module.module_instances:
-                    for port in inst.ports:
-                        if inst.ports[port] == module_input.net_name:
-#                            print("      connected instance:",inst," port: ",port)
-                            ref = self.get_ref(inst).pins[port]
-#                            print("      related power pin:",ref)
-
-                            if "related_power_pin" in ref:
-                                related_power_net = inst.ports[ref["related_power_pin"]]
-
-                            if "related_ground_pin" in ref:
-                                related_ground_net = inst.ports[ref["related_ground_pin"]]
-
-                            result.append("# input  {} {} {}\n".format(module_input.net_name,
-                                                                       related_power_net,
-                                                                       related_ground_net))
+                result.append("# input  {} {}\n".format(module_input.net_name,
+                                                        self.get_related_supply_set(module_input.net_name)))
 
         result.append("\n################################")
         result.append("\n# power connections of instances")

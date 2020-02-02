@@ -4306,12 +4306,16 @@ area : 2.346500;
     capacitance : 0.00236501;
     rise_capacitance : 0.00236501;
     fall_capacitance : 0.00229711;
+    related_power_pin : VDD;
+    related_ground_pin : VSS;
   }
   pin(Y)  {
     direction : output;
     capacitance : 0;
     rise_capacitance : 0;
     fall_capacitance : 0;
+    related_power_pin : VDD;
+    related_ground_pin : VSS;
     max_capacitance : 0;
     function : "(!(A+B))";
     timing() {
