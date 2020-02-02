@@ -25,6 +25,9 @@ class mod_obj:
     def add_pg_net(self,pg_net):
         self.pg_nets[pg_net]="primary"
         
+    def get_ref(self,inst):
+        return(self.ref_list.get(inst.module_name))
+        
     def export_upf(self):
         result = result_string_obj("# export UPF\n\n")
 
@@ -39,16 +42,6 @@ class mod_obj:
                     if inst.ports[port] == wire:
                         print("      connected instance:",inst," port: ",port)
 
-        for input in module.input_declarations:
-            print("  input:",input)
-
-            wire = input.net_name
-            print("    connected wire:",wire)
-            
-            for inst in module.module_instances:
-                for port in inst.ports:
-                    if inst.ports[port] == wire:
-                        print("      connected instance:",inst," port: ",port)
                         
         result.append("\n##############")
         result.append("\n# supply ports")
@@ -58,6 +51,32 @@ class mod_obj:
             result.append("create_supply_net  {}\n".format(pg_net))
             result.append("connect_supply_net {} -ports {}\n\n".format(pg_net,pg_net))
             
+
+        #iterate over module inputs
+        #check that it is a signal port
+        #extract connected instance
+        #derive related supply port
+        for module_input in module.input_declarations:
+            if not (module_input.net_name in self.pg_nets):
+                print("  input:",module_input.net_name)
+
+                for inst in module.module_instances:
+                    for port in inst.ports:
+                        if inst.ports[port] == module_input.net_name:
+#                            print("      connected instance:",inst," port: ",port)
+                            ref = self.get_ref(inst).pins[port]
+#                            print("      related power pin:",ref)
+
+                            if "related_power_pin" in ref:
+                                related_power_net = inst.ports[ref["related_power_pin"]]
+
+                            if "related_ground_pin" in ref:
+                                related_ground_net = inst.ports[ref["related_ground_pin"]]
+
+                            result.append("# input  {} {} {}\n".format(module_input.net_name,
+                                                                       related_power_net,
+                                                                       related_ground_net))
+
         result.append("\n################################")
         result.append("\n# power connections of instances")
         result.append("\n################################\n\n")
@@ -78,6 +97,7 @@ class ref_obj:
         self.lib_ref = None
         self.parent = parent
         self.pg_pins = {}
+        self.pins = {}
  
     def add(self,inst):
         self.inst_list[inst.instance_name] = inst
@@ -96,10 +116,11 @@ class ref_obj:
         
         pins = self.lib_ref.get_groups('pin')
         for pin in pins:
-            print("    pin:",pin.args[0])
+            print("    pin:",pin.args[0],pin.attributes)
+            self.pins[pin.args[0]] = pin.attributes
         
     def __repr__(self):
-        return "pg_pins({}),inst_list({})".format(self.pg_pins,self.inst_list)
+        return "pg_pins({}),pins({}),inst_list({})".format(self.pg_pins,self.pins,self.inst_list)
 
 class ref_list_obj:
     
@@ -119,6 +140,10 @@ class ref_list_obj:
         if cell_name in self.ref_obj_list:
             print("add_lib_ref:",cell_name)
             self.ref_obj_list[cell_name].add_lib_ref(cell)
+            
+    def get(self,cell_name):
+        if cell_name in self.ref_obj_list:
+            return(self.ref_obj_list[cell_name])
 
     def __iter__(self):
         self.iter_keys = list(self.ref_obj_list.keys())

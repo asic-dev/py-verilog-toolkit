@@ -4298,6 +4298,8 @@ area : 2.346500;
     capacitance : 0.00224248;
     rise_capacitance : 0.00224248;
     fall_capacitance : 0.00220861;
+    related_power_pin : VDD;
+    related_ground_pin : VSS;
   }
   pin(B)  {
     direction : input;
