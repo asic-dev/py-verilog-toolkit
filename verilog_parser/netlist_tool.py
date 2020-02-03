@@ -53,15 +53,20 @@ class mod_obj:
             result.append("connect_supply_net {} -ports {}\n\n".format(pg_net,pg_net))
             
 
+        result.append("\n###################")
+        result.append("\n# supply set of IOs")
+        result.append("\n###################\n\n")
         module = self.module
         for module_output in module.output_declarations:
-            result.append("# output  {} {}\n".format(module_output.net_name,
-                                                     self.get_related_supply_set(module_output.net_name)))
+            result.append("set_port_attributes -receiver_supply {} -ports {{{}}}\n".format(
+                          self.get_related_supply_set(module_output.net_name),
+                          module_output.net_name))
 
         for module_input in module.input_declarations:
             if not (module_input.net_name in self.pg_nets):
-                result.append("# input  {} {}\n".format(module_input.net_name,
-                                                        self.get_related_supply_set(module_input.net_name)))
+                result.append("set_port_attributes -driver_supply {} -ports {{{}}}\n".format(
+                              self.get_related_supply_set(module_input.net_name),
+                              module_input.net_name))
 
         result.append("\n################################")
         result.append("\n# power connections of instances")
