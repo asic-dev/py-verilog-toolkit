@@ -37,10 +37,11 @@ class mod_obj:
                         related_power_net = inst.ports[ref["related_power_pin"]]
                         if "related_ground_pin" in ref:
                             related_ground_net = inst.ports[ref["related_ground_pin"]]
-                            return("SS_"+related_power_net+"_"+related_ground_net)
+                            result = {"SS_"+related_power_net+"_"+related_ground_net : {"power":related_power_net,"ground":related_ground_net}}
+                            return(result)
         print("Error: could not extract supply set of net {}!".format(net))
         raise
-        
+    
     def export_upf(self):
         result = result_string_obj("# export UPF\n\n")
 
@@ -56,17 +57,38 @@ class mod_obj:
         result.append("\n###################")
         result.append("\n# supply set of IOs")
         result.append("\n###################\n\n")
+
         module = self.module
+
+        ss_dict = {}
         for module_output in module.output_declarations:
-            result.append("set_port_attributes -receiver_supply {} -ports {{{}}}\n".format(
-                          self.get_related_supply_set(module_output.net_name),
-                          module_output.net_name))
+            ss_dict.update(self.get_related_supply_set(module_output.net_name))
+        for module_input in module.input_declarations:
+            if not (module_input.net_name in self.pg_nets):
+                ss_dict.update(self.get_related_supply_set(module_input.net_name))
+            
+        for supply_set in ss_dict:
+            result.append("create_supply_set {} -function {{power {}}} -function {{ground {}}}\n".format(
+                          supply_set,
+                          ss_dict[supply_set]["power"],
+                          ss_dict[supply_set]["ground"]))
+
+        result.append("\n")
+        
+        for module_output in module.output_declarations:
+            for supply_set in self.get_related_supply_set(module_output.net_name):
+                result.append("set_port_attributes -receiver_supply {} -ports {{{}}}\n".format(
+                              supply_set,
+                              module_output.net_name))
+
+        result.append("\n")
 
         for module_input in module.input_declarations:
             if not (module_input.net_name in self.pg_nets):
-                result.append("set_port_attributes -driver_supply {} -ports {{{}}}\n".format(
-                              self.get_related_supply_set(module_input.net_name),
-                              module_input.net_name))
+                for supply_set in self.get_related_supply_set(module_input.net_name):
+                    result.append("set_port_attributes -driver_supply {} -ports {{{}}}\n".format(
+                                  supply_set,
+                                  module_input.net_name))
 
         result.append("\n################################")
         result.append("\n# power connections of instances")
