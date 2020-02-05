@@ -32,13 +32,33 @@ class mod_obj:
         for inst in self.module.module_instances:
             for port in inst.ports:
                 if inst.ports[port] == net:
-                    ref = self.get_ref(inst).pins[port]
+                    ref_cell = self.get_ref(inst)
+                    ref = ref_cell.pins[port]
+                    
+                    # check that related power pin is defined in the liberty file of the connected cell
                     if "related_power_pin" in ref:
                         related_power_net = inst.ports[ref["related_power_pin"]]
-                        if "related_ground_pin" in ref:
-                            related_ground_net = inst.ports[ref["related_ground_pin"]]
-                            result = {"SS_"+related_power_net+"_"+related_ground_net : {"power":related_power_net,"ground":related_ground_net}}
-                            return(result)
+                    else:
+                        raise Exception("no related_power_pin defined for pin {} of cell {}".format(port,inst.module_name))
+
+                    # check that related power pin has the primary power pg_type attribute
+                    if not (ref_cell.pg_pins[ref["related_power_pin"]] == "primary_power"):
+                        raise Exception("related_power_pin {} should have the attribute primary_power".format(ref["related_power_pin"]))
+
+                    # check that related ground pin is defined in the liberty file of the connected cell
+                    if "related_ground_pin" in ref:
+                        related_ground_net = inst.ports[ref["related_ground_pin"]]
+                    else:
+                        raise Exception("no related_ground_pin defined for pin {} of cell {}".format(port,inst.module_name))
+
+                    # check that related ground pin has the primary ground pg_type attribute
+                    if not (ref_cell.pg_pins[ref["related_ground_pin"]] == "primary_ground"):
+                        raise Exception("related_ground_pin {} should have the attribute primary_ground and not {}".format(
+                                        ref["related_ground_pin"],
+                                        ref_cell.pg_pins[ref["related_ground_pin"]]))
+
+                    result = {"SS_"+related_power_net+"_"+related_ground_net : {"power":related_power_net,"ground":related_ground_net}}
+                    return(result)
         print("Error: could not extract supply set of net {}!".format(net))
         raise
     
@@ -121,7 +141,7 @@ class ref_obj:
         pg_pins = self.lib_ref.get_groups('pg_pin')
         for pg_pin in pg_pins:
             print("    pg_pin:",pg_pin.args[0])
-            self.pg_pins[pg_pin.args[0]] = "tbd function"
+            self.pg_pins[pg_pin.args[0]] = pg_pin.attributes["pg_type"]
             
             for inst in self.inst_list:
                 print("      connected supply net:",self.inst_list[inst].ports[pg_pin.args[0]])
