@@ -62,6 +62,7 @@ class mod_obj:
             self.ref_list.add(inst)
             
         self.pg_nets = {}
+        print("module:",module)
         
         self.extract_dict={
                 "upf":     self.export_upf,
@@ -163,9 +164,17 @@ class mod_obj:
             
         return(result)
     
+    def port_list(self):
+        result = ""
+        for port in self.module.port_list:
+            if not port in self.pg_nets: 
+                result += port+","
+        result = result[:-1]
+        return(result)
+    
     def export_netlist(self):
         result = result_string_obj("# export netlist\n\n")
-        result.append("module {} ( )\n\n".format(self.id))
+        result.append("module {} ({})\n\n".format(self.id,self.port_list()))
         result.append(self.ref_list.extract("netlist"))
         result.append("endmodule")
         return(result)
