@@ -18,6 +18,11 @@ class inst_obj:
         self.pg_connections = {}
         self.signal_connections = {}
         
+        self.extract_dict = {
+                "upf":     self.export_upf,
+                "netlist": self.export_netlist
+            }
+        
     def resolve_connectivity(self):
         for pg_pin in self.ref_cell.pg_pins:
             self.pg_connections[pg_pin] = self.inst.ports[pg_pin]
@@ -31,6 +36,17 @@ class inst_obj:
                                                                  self.id,
                                                                  pg_pin)
         return(result_str)
+
+    def export_netlist(self):
+        result_str = ""
+        result_str += "    {} {} (\n".format(self.ref_cell.id,self.id)
+        for pin in self.signal_connections:
+            result_str += "        .{}({})\n".format(pin,self.signal_connections[pin])
+        result_str += "    );\n"
+        return(result_str)
+    
+    def extract(self,extract_type):
+        return(self.extract_dict[extract_type]())
 
     def __repr__(self):
         return "(instance:{},pg_pins({}),pins({}))".format(self.id,self.pg_connections,self.signal_connections)
@@ -46,6 +62,11 @@ class mod_obj:
             self.ref_list.add(inst)
             
         self.pg_nets = {}
+        
+        self.extract_dict={
+                "upf":     self.export_upf,
+                "netlist": self.export_netlist
+            }
         
     def add_pg_net(self,pg_net):
         self.pg_nets[pg_net]="primary"
@@ -138,13 +159,24 @@ class mod_obj:
         result.append("\n################################")
         result.append("\n# power connections of instances")
         result.append("\n################################\n\n")
-        result.append(self.ref_list.export_upf())
+        result.append(self.ref_list.extract("upf"))
             
         return(result)
+    
+    def export_netlist(self):
+        result = result_string_obj("# export netlist\n\n")
+        result.append("module {} ( )\n\n".format(self.id))
+        result.append(self.ref_list.extract("netlist"))
+        result.append("endmodule")
+        return(result)
+    
+    def extract(self,extract_type):
+        return(self.extract_dict[extract_type]())
 
 class ref_obj:
     
     def __init__(self,parent,inst):
+        self.id = inst.module_name
         self.inst_list = {}
         self.lib_ref = None
         self.parent = parent
@@ -178,10 +210,10 @@ class ref_obj:
             self.inst_list[inst_id].resolve_connectivity()
             print(self.inst_list[inst_id])
 
-    def export_upf(self):
+    def extract(self,extract_type):
         result_str = ""
         for inst_id in self.inst_list:
-            result_str += self.inst_list[inst_id].export_upf()+"\n"
+            result_str += self.inst_list[inst_id].extract(extract_type)+"\n"
         return(result_str)
         
     def __repr__(self):
@@ -190,7 +222,6 @@ class ref_obj:
 class ref_list_obj:
     
     def __init__(self,parent):
-        print("ref_list_obj init")
         self.ref_obj_list = {}
         self.parent = parent
         
@@ -206,10 +237,10 @@ class ref_list_obj:
             print("add_lib_ref:",cell_name)
             self.ref_obj_list[cell_name].add_lib_ref(cell)
 
-    def export_upf(self):
+    def extract(self,extract_type):
         result_str = ""
         for cell_id in self.ref_obj_list:
-            result_str += self.ref_obj_list[cell_id].export_upf()
+            result_str += self.ref_obj_list[cell_id].extract(extract_type)
         return(result_str)
             
     def get(self,cell_name):
@@ -278,6 +309,12 @@ class netlist_tool:
             print("export UPF of module ",module)
             return(self.module_list[module].export_upf())
             
+    def extract(self,module,extract_type):
+        if module not in self.module_list:
+            raise Exception("module " + module + " does not exist")
+        else:
+            print("export UPF of module ",module)
+            return(self.module_list[module].extract(extract_type))
         
     def export(self):
         result = "/* export netlist */\n\n"

@@ -23,6 +23,9 @@ design.load_lib("../test_data/ls.lib")
 design.extract_refs()
 
 upf = design.export_upf("pg_netlist")
+verilog_netlist = design.extract("pg_netlist","netlist")
 
 print(upf)
+
+print(verilog_netlist)
     
