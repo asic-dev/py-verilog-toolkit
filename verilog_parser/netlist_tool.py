@@ -9,6 +9,31 @@ class result_string_obj:
 
     def __repr__(self):
         return self.result
+    
+class inst_obj:
+    def __init__(self,ref_cell,inst):
+        self.id = inst.instance_name
+        self.ref_cell = ref_cell
+        self.inst = inst
+        self.pg_connections = {}
+        self.signal_connections = {}
+        
+    def resolve_connectivity(self):
+        for pg_pin in self.ref_cell.pg_pins:
+            self.pg_connections[pg_pin] = self.inst.ports[pg_pin]
+        for pin in self.ref_cell.pins:
+            self.signal_connections[pin] = self.inst.ports[pin]
+
+    def export_upf(self):
+        result_str = ""
+        for pg_pin in self.pg_connections:
+            result_str += "connect_supply_net {} -ports {}/{}\n".format(self.pg_connections[pg_pin],
+                                                                 self.id,
+                                                                 pg_pin)
+        return(result_str)
+
+    def __repr__(self):
+        return "(instance:{},pg_pins({}),pins({}))".format(self.id,self.pg_connections,self.signal_connections)
 
 class mod_obj:
     
@@ -113,12 +138,7 @@ class mod_obj:
         result.append("\n################################")
         result.append("\n# power connections of instances")
         result.append("\n################################\n\n")
-        for cell_ref in self.ref_list:
-            print(" cell_ref:",cell_ref)
-            for inst in cell_ref.inst_list:
-                for pg_pin in cell_ref.pg_pins:
-                    result.append("connect_supply_net {} -ports {}/{}\n".format(cell_ref.inst_list[inst].ports[pg_pin],inst,pg_pin))
-                result.append("\n")
+        result.append(self.ref_list.export_upf())
             
         return(result)
 
@@ -126,14 +146,14 @@ class ref_obj:
     
     def __init__(self,parent,inst):
         self.inst_list = {}
-        self.add(inst)
         self.lib_ref = None
         self.parent = parent
         self.pg_pins = {}
         self.pins = {}
- 
+        self.add(inst)
+   
     def add(self,inst):
-        self.inst_list[inst.instance_name] = inst
+        self.inst_list[inst.instance_name] = inst_obj(self,inst)
         
     def add_lib_ref(self,cell):
         self.lib_ref = cell
@@ -144,13 +164,25 @@ class ref_obj:
             self.pg_pins[pg_pin.args[0]] = pg_pin.attributes["pg_type"]
             
             for inst in self.inst_list:
-                print("      connected supply net:",self.inst_list[inst].ports[pg_pin.args[0]])
-                self.parent.add_pg_net(self.inst_list[inst].ports[pg_pin.args[0]])
+                print("      connected supply net:",self.inst_list[inst].inst.ports[pg_pin.args[0]])
+                self.parent.add_pg_net(self.inst_list[inst].inst.ports[pg_pin.args[0]])
         
         pins = self.lib_ref.get_groups('pin')
         for pin in pins:
             print("    pin:",pin.args[0],pin.attributes)
             self.pins[pin.args[0]] = pin.attributes
+            
+        # after the pg_pins are extracted for the cell all port connections can be separated into
+        # supply and signal connections
+        for inst_id in self.inst_list:
+            self.inst_list[inst_id].resolve_connectivity()
+            print(self.inst_list[inst_id])
+
+    def export_upf(self):
+        result_str = ""
+        for inst_id in self.inst_list:
+            result_str += self.inst_list[inst_id].export_upf()+"\n"
+        return(result_str)
         
     def __repr__(self):
         return "pg_pins({}),pins({}),inst_list({})".format(self.pg_pins,self.pins,self.inst_list)
@@ -173,6 +205,12 @@ class ref_list_obj:
         if cell_name in self.ref_obj_list:
             print("add_lib_ref:",cell_name)
             self.ref_obj_list[cell_name].add_lib_ref(cell)
+
+    def export_upf(self):
+        result_str = ""
+        for cell_id in self.ref_obj_list:
+            result_str += self.ref_obj_list[cell_id].export_upf()
+        return(result_str)
             
     def get(self,cell_name):
         if cell_name in self.ref_obj_list:
