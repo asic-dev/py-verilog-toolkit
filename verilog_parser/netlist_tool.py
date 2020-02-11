@@ -9,10 +9,61 @@ class result_string_obj:
 
     def __repr__(self):
         return self.result
+
+class netlist_obj:
     
-class inst_obj:
+    def __init__(self,identifier):
+        self.id = identifier
+        self.__gen_dict = {}
+        self.__dict = {}
+
+    def gen(self,gen_type):
+        if gen_type in self.__gen_dict:
+            return(self.__gen_dict[gen_type]())
+        else:
+            result = ""
+            for item in self.__dict:
+                result += self.__dict[item].gen(gen_type)
+            return(result)
+                
+    def gen_reg(self,gen_type,function):
+        self.__gen_dict[gen_type] = function
+
+    def add(self,netlist_obj):
+        self.__dict[netlist_obj.id]=netlist_obj
+        
+    def remove(self,identifier):
+        try:
+            self.__dict.pop(identifier)
+        except:
+            None
+        
+    def get(self,identifier):
+        return(self.__dict[identifier])
+
+
+    def __iter__(self):
+        self.iter_keys = list(self.__dict.keys())
+        return(self)
+    
+    def __next__(self):
+        try:
+            return(self.__dict[self.iter_keys.pop()])
+        except IndexError:
+            raise StopIteration
+
+class net_obj(netlist_obj):
+    
+    def __init__(self,identifier):
+        super().__init__(identifier)        
+        self.gen_reg("netlist",self.gen_decl)
+
+    def gen_decl(self):
+        return("    input {};\n".format(self.id))
+   
+class inst_obj(netlist_obj):
     def __init__(self,ref_cell,inst):
-        self.id = inst.instance_name
+        super().__init__(inst.instance_name)
         self.ref_cell = ref_cell
         self.inst = inst
         self.pg_connections = {}
@@ -51,7 +102,7 @@ class inst_obj:
     def __repr__(self):
         return "(instance:{},pg_pins({}),pins({}))".format(self.id,self.pg_connections,self.signal_connections)
 
-class mod_obj:
+class module_obj:
     
     def __init__(self,module):
         self.id = module.module_name
@@ -62,8 +113,11 @@ class mod_obj:
             self.ref_list.add(inst)
             
         self.pg_nets = {}
-        print("module:",module)
         
+        self.input_nets = netlist_obj("input_nets")
+        for input_net in module.input_declarations:
+            self.input_nets.add(net_obj(input_net.net_name))
+            
         self.extract_dict={
                 "upf":     self.export_upf,
                 "netlist": self.export_netlist
@@ -71,6 +125,7 @@ class mod_obj:
         
     def add_pg_net(self,pg_net):
         self.pg_nets[pg_net]="primary"
+        self.input_nets.remove(pg_net)
         
     def get_ref(self,inst):
         return(self.ref_list.get(inst.module_name))
@@ -175,6 +230,8 @@ class mod_obj:
     def export_netlist(self):
         result = result_string_obj("# export netlist\n\n")
         result.append("module {} ({})\n\n".format(self.id,self.port_list()))
+        result.append(self.input_nets.gen("netlist"))
+        result.append("\n")
         result.append(self.ref_list.extract("netlist"))
         result.append("endmodule")
         return(result)
@@ -278,7 +335,7 @@ class netlist_tool:
 
         self.module_list = {}
         for module in self.netlist.modules:
-            self.module_list[module.module_name] = mod_obj(module)
+            self.module_list[module.module_name] = module_obj(module)
         
     def extract_refs(self):
         print("extract referenced cells")
