@@ -41,7 +41,6 @@ class netlist_obj:
     def get(self,identifier):
         return(self.__dict[identifier])
 
-
     def __iter__(self):
         self.iter_keys = list(self.__dict.keys())
         return(self)
@@ -56,9 +55,9 @@ class net_obj(netlist_obj):
     
     def __init__(self,identifier):
         super().__init__(identifier)        
-        self.gen_reg("netlist",self.gen_decl)
+        self.gen_reg("netlist",self.gen_vlog_decl)
 
-    def gen_decl(self):
+    def gen_vlog_decl(self):
         return("    input {};\n".format(self.id))
    
 class inst_obj(netlist_obj):
@@ -69,10 +68,8 @@ class inst_obj(netlist_obj):
         self.pg_connections = {}
         self.signal_connections = {}
         
-        self.extract_dict = {
-                "upf":     self.export_upf,
-                "netlist": self.export_netlist
-            }
+        self.gen_reg("upf",self.export_upf)
+        self.gen_reg("netlist",self.export_netlist)
         
     def resolve_connectivity(self):
         for pg_pin in self.ref_cell.pg_pins:
@@ -96,9 +93,6 @@ class inst_obj(netlist_obj):
         result_str += "    );\n"
         return(result_str)
     
-    def extract(self,extract_type):
-        return(self.extract_dict[extract_type]())
-
     def __repr__(self):
         return "(instance:{},pg_pins({}),pins({}))".format(self.id,self.pg_connections,self.signal_connections)
 
@@ -185,9 +179,8 @@ class module_obj:
         ss_dict = {}
         for module_output in module.output_declarations:
             ss_dict.update(self.get_related_supply_set(module_output.net_name))
-        for module_input in module.input_declarations:
-            if not (module_input.net_name in self.pg_nets):
-                ss_dict.update(self.get_related_supply_set(module_input.net_name))
+        for input_net in self.input_nets:
+            ss_dict.update(self.get_related_supply_set(input_net.id))
             
         for supply_set in ss_dict:
             result.append("create_supply_set {} -function {{power {}}} -function {{ground {}}}\n".format(
@@ -215,7 +208,7 @@ class module_obj:
         result.append("\n################################")
         result.append("\n# power connections of instances")
         result.append("\n################################\n\n")
-        result.append(self.ref_list.extract("upf"))
+        result.append(self.ref_list.gen("upf"))
             
         return(result)
     
@@ -232,18 +225,17 @@ class module_obj:
         result.append("module {} ({})\n\n".format(self.id,self.port_list()))
         result.append(self.input_nets.gen("netlist"))
         result.append("\n")
-        result.append(self.ref_list.extract("netlist"))
+        result.append(self.ref_list.gen("netlist"))
         result.append("endmodule")
         return(result)
     
     def extract(self,extract_type):
         return(self.extract_dict[extract_type]())
 
-class ref_obj:
+class ref_obj(netlist_obj):
     
     def __init__(self,parent,inst):
-        self.id = inst.module_name
-        self.inst_list = {}
+        super().__init__(inst.module_name)
         self.lib_ref = None
         self.parent = parent
         self.pg_pins = {}
@@ -251,20 +243,19 @@ class ref_obj:
         self.add(inst)
    
     def add(self,inst):
-        self.inst_list[inst.instance_name] = inst_obj(self,inst)
+        instance = inst_obj(self,inst)
+        super().add(instance)
         
     def add_lib_ref(self,cell):
         self.lib_ref = cell
 
         pg_pins = self.lib_ref.get_groups('pg_pin')
         for pg_pin in pg_pins:
-            print("    pg_pin:",pg_pin.args[0])
             self.pg_pins[pg_pin.args[0]] = pg_pin.attributes["pg_type"]
             
-            for inst in self.inst_list:
-                print("      connected supply net:",self.inst_list[inst].inst.ports[pg_pin.args[0]])
-                self.parent.add_pg_net(self.inst_list[inst].inst.ports[pg_pin.args[0]])
-        
+            for instance in self:
+                self.parent.add_pg_net(instance.inst.ports[pg_pin.args[0]])
+                
         pins = self.lib_ref.get_groups('pin')
         for pin in pins:
             print("    pin:",pin.args[0],pin.attributes)
@@ -272,59 +263,39 @@ class ref_obj:
             
         # after the pg_pins are extracted for the cell all port connections can be separated into
         # supply and signal connections
-        for inst_id in self.inst_list:
-            self.inst_list[inst_id].resolve_connectivity()
-            print(self.inst_list[inst_id])
+        for instance in self:
+            instance.resolve_connectivity()
 
     def extract(self,extract_type):
         result_str = ""
-        for inst_id in self.inst_list:
-            result_str += self.inst_list[inst_id].extract(extract_type)+"\n"
+        for instance in self:
+            result_str += instance.extract(extract_type)+"\n"
         return(result_str)
         
     def __repr__(self):
-        return "pg_pins({}),pins({}),inst_list({})".format(self.pg_pins,self.pins,self.inst_list)
+        return "pg_pins({}),pins({}),inst_list({})".format(self.pg_pins,self.pins,self._netlist_obj__dict)
 
-class ref_list_obj:
+class ref_list_obj(netlist_obj):
     
     def __init__(self,parent):
-        self.ref_obj_list = {}
+        super().__init__("reference_list")
         self.parent = parent
         
     def add(self,inst):
-        module = inst.module_name
-        if module in self.ref_obj_list:
-            self.ref_obj_list[module].add(inst)
-        else:
-            self.ref_obj_list[module]=ref_obj(self.parent,inst)
+        try:
+            self.get(inst.module_name).add(inst)
+        except:
+            super().add(ref_obj(self.parent,inst))
 
     def add_lib_ref(self,cell_name,cell):
-        if cell_name in self.ref_obj_list:
-            print("add_lib_ref:",cell_name)
-            self.ref_obj_list[cell_name].add_lib_ref(cell)
-
-    def extract(self,extract_type):
-        result_str = ""
-        for cell_id in self.ref_obj_list:
-            result_str += self.ref_obj_list[cell_id].extract(extract_type)
-        return(result_str)
-            
-    def get(self,cell_name):
-        if cell_name in self.ref_obj_list:
-            return(self.ref_obj_list[cell_name])
-
-    def __iter__(self):
-        self.iter_keys = list(self.ref_obj_list.keys())
-        return(self)
-
-    def __next__(self):
         try:
-            return(self.ref_obj_list[self.iter_keys.pop()])
-        except IndexError:
-            raise StopIteration
+            self.get(cell_name).add_lib_ref(cell)
+            print("add_lib_ref:",cell_name)
+        except:
+            None
 
     def __repr__(self):
-        return "ref_list({})".format(self.ref_obj_list)
+        return "ref_list({})".format(self._netlist_obj__dict)
 
 class netlist_tool:
     
