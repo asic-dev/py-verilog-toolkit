@@ -101,10 +101,11 @@ class inst_obj(netlist_obj):
 
     def export_netlist(self):
         result_str = ""
-        result_str += "    {} {} (\n".format(self.ref_cell.id,self.id)
+        result_str += "    {} {} (".format(self.ref_cell.id,self.id)
         for pin in self.signal_connections:
-            result_str += "        .{}({})\n".format(pin,self.signal_connections[pin])
-        result_str += "    );\n"
+            result_str += "\n        .{}({}),".format(pin,self.signal_connections[pin])
+        result_str = result_str[:-1]
+        result_str += "\n    );\n\n"
         return(result_str)
     
     def __repr__(self):
