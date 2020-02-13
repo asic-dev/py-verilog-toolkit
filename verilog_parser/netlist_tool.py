@@ -11,6 +11,13 @@ class result_string_obj:
         return self.result
 
 class netlist_obj:
+
+    '''
+    Generic netlist object class that can be iterated
+    
+    It can execute a dedicated methode with "gen()" that was registered with "gen_reg()" or
+    call the methode "gen()" for each item in the internal dictionary. 
+    ''' 
     
     def __init__(self,identifier):
         self.id = identifier
@@ -61,6 +68,13 @@ class net_obj(netlist_obj):
         return("    input {};\n".format(self.id))
    
 class inst_obj(netlist_obj):
+    
+    '''
+    object class for a cell instance in the netlist
+    
+    The constructor requires the reference cell and the parsed verilog of the instance.
+    '''
+    
     def __init__(self,ref_cell,inst):
         super().__init__(inst.instance_name)
         self.ref_cell = ref_cell
@@ -112,11 +126,6 @@ class module_obj:
         for input_net in module.input_declarations:
             self.input_nets.add(net_obj(input_net.net_name))
             
-        self.extract_dict={
-                "upf":     self.export_upf,
-                "netlist": self.export_netlist
-            }
-        
     def add_pg_net(self,pg_net):
         self.pg_nets[pg_net]="primary"
         self.input_nets.remove(pg_net)
@@ -198,12 +207,11 @@ class module_obj:
 
         result.append("\n")
 
-        for module_input in module.input_declarations:
-            if not (module_input.net_name in self.pg_nets):
-                for supply_set in self.get_related_supply_set(module_input.net_name):
-                    result.append("set_port_attributes -driver_supply {} -ports {{{}}}\n".format(
-                                  supply_set,
-                                  module_input.net_name))
+        for input in self.input_nets:
+            for supply_set in self.get_related_supply_set(input.id):
+                result.append("set_port_attributes -driver_supply {} -ports {{{}}}\n".format(
+                              supply_set,
+                              input.id))
 
         result.append("\n################################")
         result.append("\n# power connections of instances")
@@ -230,9 +238,18 @@ class module_obj:
         return(result)
     
     def extract(self,extract_type):
-        return(self.extract_dict[extract_type]())
+        extract_dict={
+                "upf":     self.export_upf,
+                "netlist": self.export_netlist
+            }
+        
+        return(extract_dict[extract_type]())
 
 class ref_obj(netlist_obj):
+
+    '''
+    reference cell: stores a list of all instantiations of the cell.
+    '''
     
     def __init__(self,parent,inst):
         super().__init__(inst.module_name)
@@ -243,8 +260,7 @@ class ref_obj(netlist_obj):
         self.add(inst)
    
     def add(self,inst):
-        instance = inst_obj(self,inst)
-        super().add(instance)
+        super().add(inst_obj(self,inst))
         
     def add_lib_ref(self,cell):
         self.lib_ref = cell
@@ -266,12 +282,6 @@ class ref_obj(netlist_obj):
         for instance in self:
             instance.resolve_connectivity()
 
-    def extract(self,extract_type):
-        result_str = ""
-        for instance in self:
-            result_str += instance.extract(extract_type)+"\n"
-        return(result_str)
-        
     def __repr__(self):
         return "pg_pins({}),pins({}),inst_list({})".format(self.pg_pins,self.pins,self._netlist_obj__dict)
 
@@ -326,7 +336,6 @@ class netlist_tool:
                 except:
                     cell_name = cell.args[0]
                     
-#                self.ref_list.add_lib_ref(cell_name, cell)
                 for module in self.module_list:
                     self.module_list[module].ref_list.add_lib_ref(cell_name, cell)
             
