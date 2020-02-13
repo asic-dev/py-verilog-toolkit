@@ -6,6 +6,12 @@ class result_string_obj:
 
     def append(self,string):
         self.result += string
+        
+    def comment(self,string):
+        self.result += '\n' + '#'*(len(string)+4)
+        self.result += '\n' + "# " + string + " #"
+        self.result += '\n' + '#'*(len(string)+4)
+        self.result += '\n'
 
     def __repr__(self):
         return self.result
@@ -171,19 +177,13 @@ class module_obj:
     def export_upf(self):
         result = result_string_obj("# export UPF\n\n")
 
-        result.append("\n##############")
-        result.append("\n# supply ports")
-        result.append("\n##############\n\n")
+        result.comment("supply ports")
         for pg_net in self.pg_nets:
             result.append("create_supply_port {}\n".format(pg_net))
             result.append("create_supply_net  {}\n".format(pg_net))
             result.append("connect_supply_net {} -ports {}\n\n".format(pg_net,pg_net))
             
-
-        result.append("\n###################")
-        result.append("\n# supply set of IOs")
-        result.append("\n###################\n\n")
-
+        result.comment("supply set of IOs")
         module = self.module
 
         ss_dict = {}
@@ -214,9 +214,7 @@ class module_obj:
                               supply_set,
                               input.id))
 
-        result.append("\n################################")
-        result.append("\n# power connections of instances")
-        result.append("\n################################\n\n")
+        result.comment("power connections of instances")
         result.append(self.ref_list.gen("upf"))
             
         return(result)
