@@ -244,10 +244,10 @@ class module_obj:
         
         return(extract_dict[extract_type]())
 
-class ref_obj(netlist_obj):
+class cell_obj(netlist_obj):
 
     '''
-    reference cell: stores a list of all instantiations of the cell.
+    cell: stores a list of all instantiations of the cell within a module
     '''
     
     def __init__(self,parent,inst):
@@ -294,7 +294,7 @@ class ref_list_obj(netlist_obj):
         try:
             self.get(inst.module_name).add(inst)
         except:
-            super().add(ref_obj(self.parent,inst))
+            super().add(cell_obj(self.parent,inst))
 
     def add_lib_ref(self,cell_name,cell):
         try:
