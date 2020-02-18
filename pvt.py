@@ -32,9 +32,17 @@ def main():
         
     try:
         netlist = parse_verilog(data)
+        design = netlist_tool(netlist)
         print(netlist)
     except:
         sys.exit("ERROR: could not parse verilog power&ground netlist")
+        
+    try:
+        design.load_lib(args.liberty_file)
+        design.extract_refs()
+        print(design.export_upf("pg_netlist"))
+    except:
+        sys.exit("ERROR: could not load cell library")
         
 
 if __name__ == "__main__":
