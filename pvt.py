@@ -27,6 +27,10 @@ def main():
                         help = "top module for extraction",
                         required = True)
     
+    parser.add_argument("--export_upf",
+                        type = str,
+                        help = "export UPF of the power&ground netlist")
+    
     args = parser.parse_args()
 
     try:
@@ -39,23 +43,24 @@ def main():
     try:
         netlist = parse_verilog(data)
         design = netlist_tool(netlist)
-        print(netlist)
     except:
         sys.exit("ERROR: could not parse verilog power&ground netlist")
         
     try:
         design.load_lib(args.liberty_file)
         design.extract_refs()
-        print(design.export_upf("pg_netlist"))
     except:
         sys.exit("ERROR: could not load cell library")
-        
-    try:
-        exported_upf = design.export_upf(args.module)
-        print(exported_upf)
-    except:
-        sys.exit("ERROR: could not export upf data")
-        
-
+     
+    if not(args.export_upf is None):
+        try:
+            exported_upf = design.export_upf(args.module)
+            print(exported_upf)
+            f = open(args.export_upf,"w")
+            f.write(str(exported_upf))
+            f.close()
+        except:
+            sys.exit("ERROR: could not export upf data")
+    
 if __name__ == "__main__":
     main()
