@@ -21,6 +21,12 @@ def main():
                         help = "liberty file for instantiated cells",
                         required = True)
     
+    parser.add_argument("-m",
+                        "--module",
+                        type = str,
+                        help = "top module for extraction",
+                        required = True)
+    
     args = parser.parse_args()
 
     try:
@@ -43,6 +49,12 @@ def main():
         print(design.export_upf("pg_netlist"))
     except:
         sys.exit("ERROR: could not load cell library")
+        
+    try:
+        exported_upf = design.export_upf(args.module)
+        print(exported_upf)
+    except:
+        sys.exit("ERROR: could not export upf data")
         
 
 if __name__ == "__main__":
