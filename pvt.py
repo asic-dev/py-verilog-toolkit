@@ -49,16 +49,17 @@ def main():
     try:
         design.load_lib(args.liberty_file)
         design.extract_refs()
+        print("parsing of liberty file {} successful\n".format(args.liberty_file))
     except:
         sys.exit("ERROR: could not load cell library")
      
     if not(args.export_upf is None):
         try:
             exported_upf = design.export_upf(args.module)
-            print(exported_upf)
             f = open(args.export_upf,"w")
             f.write(str(exported_upf))
             f.close()
+            print("UPF export to file {} successful\n".format(args.export_upf))
         except:
             sys.exit("ERROR: could not export upf data")
     
