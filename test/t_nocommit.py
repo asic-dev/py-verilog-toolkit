@@ -24,8 +24,11 @@ design.extract_refs()
 
 upf = design.export_upf("pg_netlist")
 verilog_netlist = design.extract("pg_netlist","netlist")
+doc = design.extract("pg_netlist","doc")
 
 print(upf)
 
 print(verilog_netlist)
+print("\n")
+print(doc)
     

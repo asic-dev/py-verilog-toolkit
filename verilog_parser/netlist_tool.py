@@ -133,6 +133,10 @@ class module_obj:
         for input_net in module.input_declarations:
             self.input_nets.add(net_obj(input_net.net_name))
             
+        self.output_nets = netlist_obj("output_nets")
+        for output_net in module.output_declarations:
+            self.output_nets.add(net_obj(output_net.net_name))
+            
     def add_pg_net(self,pg_net):
         self.pg_nets[pg_net]="primary"
         self.input_nets.remove(pg_net)
@@ -236,8 +240,23 @@ class module_obj:
         result.append("endmodule")
         return(result)
     
+    def doc(self):
+        result = result_string_obj("Module : {}\n".format(self.id))
+        result.append("Supply:\n")
+        for pg_net in self.pg_nets:
+            result.append("    {}\n".format(pg_net))
+        result.append("Inputs :\n")
+        for input_net in self.input_nets:
+            result.append("    {}\n".format(input_net.id))
+        result.append("Outputs :\n")
+        for output_net in self.output_nets:
+            result.append("    {}\n".format(output_net.id))
+        return(result)
+        
+    
     def extract(self,extract_type):
         extract_dict={
+                "doc":     self.doc,
                 "upf":     self.export_upf,
                 "netlist": self.export_netlist
             }
