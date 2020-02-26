@@ -25,10 +25,11 @@ class netlist_obj:
     call the methode "gen()" for each item in the internal dictionary. 
     ''' 
     
-    def __init__(self,identifier):
+    def __init__(self,identifier,parent):
         self.id = identifier
         self.__gen_dict = {}
         self.__dict = {}
+        self.parent = parent
 
     def gen(self,gen_type):
         if gen_type in self.__gen_dict:
@@ -71,8 +72,7 @@ class net_obj(netlist_obj):
     '''
     
     def __init__(self,identifier,parent):
-        super().__init__(identifier)
-        self.parent = parent     
+        super().__init__(identifier,parent)
         self.gen_reg("netlist",self.gen_vlog_decl)
 
     def gen_vlog_decl(self):
@@ -90,7 +90,7 @@ class inst_obj(netlist_obj):
     '''
     
     def __init__(self,ref_cell,inst):
-        super().__init__(inst.instance_name)
+        super().__init__(inst.instance_name,None)
         self.ref_cell = ref_cell
         self.inst = inst
         self.pg_connections = {}
@@ -137,11 +137,11 @@ class module_obj:
             
         self.pg_nets = {}
         
-        self.input_nets = netlist_obj("input_nets")
+        self.input_nets = netlist_obj("input_nets",self)
         for input_net in module.input_declarations:
             self.input_nets.add(net_obj(input_net.net_name,self.input_nets))
             
-        self.output_nets = netlist_obj("output_nets")
+        self.output_nets = netlist_obj("output_nets",self)
         for output_net in module.output_declarations:
             self.output_nets.add(net_obj(output_net.net_name,self.output_nets))
             
@@ -280,9 +280,8 @@ class cell_obj(netlist_obj):
     '''
     
     def __init__(self,parent,inst):
-        super().__init__(inst.module_name)
+        super().__init__(inst.module_name,parent)
         self.lib_ref = None
-        self.parent = parent
         self.pg_pins = {}
         self.pins = {}
         self.add(inst)
@@ -316,8 +315,7 @@ class cell_obj(netlist_obj):
 class ref_list_obj(netlist_obj):
     
     def __init__(self,parent):
-        super().__init__("reference_list")
-        self.parent = parent
+        super().__init__("reference_list",parent)
         
     def add(self,inst):
         try:
