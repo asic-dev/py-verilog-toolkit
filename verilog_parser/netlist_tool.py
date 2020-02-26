@@ -66,12 +66,20 @@ class netlist_obj:
 
 class net_obj(netlist_obj):
     
-    def __init__(self,identifier):
-        super().__init__(identifier)        
+    '''
+    object class for an input, output or internal net of a module
+    '''
+    
+    def __init__(self,identifier,parent):
+        super().__init__(identifier)
+        self.parent = parent     
         self.gen_reg("netlist",self.gen_vlog_decl)
 
     def gen_vlog_decl(self):
-        return("    input {};\n".format(self.id))
+        if self.parent.id == "input_nets":
+            return("    input {};\n".format(self.id))
+        elif self.parent.id == "output_nets":
+            return("    output {};\n".format(self.id))
    
 class inst_obj(netlist_obj):
     
@@ -131,11 +139,11 @@ class module_obj:
         
         self.input_nets = netlist_obj("input_nets")
         for input_net in module.input_declarations:
-            self.input_nets.add(net_obj(input_net.net_name))
+            self.input_nets.add(net_obj(input_net.net_name,self.input_nets))
             
         self.output_nets = netlist_obj("output_nets")
         for output_net in module.output_declarations:
-            self.output_nets.add(net_obj(output_net.net_name))
+            self.output_nets.add(net_obj(output_net.net_name,self.output_nets))
             
     def add_pg_net(self,pg_net):
         self.pg_nets[pg_net]="primary"
@@ -235,6 +243,8 @@ class module_obj:
         result = result_string_obj("# export netlist\n\n")
         result.append("module {} ({})\n\n".format(self.id,self.port_list()))
         result.append(self.input_nets.gen("netlist"))
+        result.append("\n")
+        result.append(self.output_nets.gen("netlist"))
         result.append("\n")
         result.append(self.ref_list.gen("netlist"))
         result.append("endmodule")
