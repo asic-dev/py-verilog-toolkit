@@ -16,7 +16,25 @@ class result_string_obj:
     def __repr__(self):
         return self.result
 
-class netlist_obj:
+class design_obj:
+
+    '''
+    Generic object class that can be used for design objects that do not have to be iterated
+    '''
+    def __init__(self,identifier,parent):
+        self.id = identifier
+        self.parent = parent
+        self.gen_dict = {}
+
+    def gen(self,gen_type):
+        if gen_type in self.gen_dict:
+            return(self.gen_dict[gen_type]())
+
+    def gen_reg(self,gen_type,function):
+        self.gen_dict[gen_type] = function
+
+
+class netlist_obj(design_obj):
 
     '''
     Generic netlist object class that can be iterated
@@ -26,22 +44,11 @@ class netlist_obj:
     ''' 
     
     def __init__(self,identifier,parent):
-        self.id = identifier
-        self.__gen_dict = {}
+        super().__init__(identifier,parent)
+#        self.id = identifier
+#        self.__gen_dict = {}
         self.__dict = {}
-        self.parent = parent
-
-    def gen(self,gen_type):
-        if gen_type in self.__gen_dict:
-            return(self.__gen_dict[gen_type]())
-        else:
-            result = ""
-            for item in self.__dict:
-                result += self.__dict[item].gen(gen_type)
-            return(result)
-                
-    def gen_reg(self,gen_type,function):
-        self.__gen_dict[gen_type] = function
+#        self.parent = parent
 
     def add(self,netlist_obj):
         self.__dict[netlist_obj.id]=netlist_obj
@@ -55,6 +62,15 @@ class netlist_obj:
     def get(self,identifier):
         return(self.__dict[identifier])
 
+    def gen(self,gen_type):
+        if gen_type in self.gen_dict:
+            return(self.gen_dict[gen_type]())
+        else:
+            result = ""
+            for item in self.__dict:
+                result += self.__dict[item].gen(gen_type)
+            return(result)
+                
     def __iter__(self):
         self.iter_keys = list(self.__dict.keys())
         return(self)
@@ -65,7 +81,7 @@ class netlist_obj:
         except IndexError:
             raise StopIteration
 
-class net_obj(netlist_obj):
+class net_obj(design_obj):
     
     '''
     object class for an input, output or internal net of a module
@@ -90,7 +106,7 @@ class inst_obj(netlist_obj):
     '''
     
     def __init__(self,ref_cell,inst):
-        super().__init__(inst.instance_name,None)
+        super().__init__(inst.instance_name,ref_cell.parent)
         self.ref_cell = ref_cell
         self.inst = inst
         self.pg_connections = {}
@@ -100,10 +116,13 @@ class inst_obj(netlist_obj):
         self.gen_reg("netlist",self.export_netlist)
         
     def resolve_connectivity(self):
+        print ("resolve_connectivity:")
+        for net in self.parent.signal_nets:
+            print(net.id)
         for pg_pin in self.ref_cell.pg_pins:
             self.pg_connections[pg_pin] = self.inst.ports[pg_pin]
         for pin in self.ref_cell.pins:
-            self.signal_connections[pin] = self.inst.ports[pin]
+            self.signal_connections[pin] = self.parent.signal_nets.get(self.inst.ports[pin])
 
     def export_upf(self):
         result_str = ""
@@ -117,7 +136,7 @@ class inst_obj(netlist_obj):
         result_str = ""
         result_str += "    {} {} (".format(self.ref_cell.id,self.id)
         for pin in self.signal_connections:
-            result_str += "\n        .{}({}),".format(pin,self.signal_connections[pin])
+            result_str += "\n        .{}({}),".format(pin,self.signal_connections[pin].id)
         result_str = result_str[:-1]
         result_str += "\n    );\n\n"
         return(result_str)
@@ -127,6 +146,12 @@ class inst_obj(netlist_obj):
 
 class module_obj:
     
+    '''
+    object class for a design module
+    
+    ToDo: should be derived from generic netlist object
+    '''
+
     def __init__(self,module):
         self.id = module.module_name
         self.module = module
@@ -137,17 +162,24 @@ class module_obj:
             
         self.pg_nets = {}
         
+        self.signal_nets =  netlist_obj("signal_nets",self)
+        
         self.input_nets = netlist_obj("input_nets",self)
         for input_net in module.input_declarations:
-            self.input_nets.add(net_obj(input_net.net_name,self.input_nets))
+            net = net_obj(input_net.net_name,self.input_nets)
+            self.input_nets.add(net)
+            self.signal_nets.add(net)
             
         self.output_nets = netlist_obj("output_nets",self)
         for output_net in module.output_declarations:
-            self.output_nets.add(net_obj(output_net.net_name,self.output_nets))
+            net = net_obj(output_net.net_name,self.output_nets)
+            self.output_nets.add(net)
+            self.signal_nets.add(net)
             
     def add_pg_net(self,pg_net):
         self.pg_nets[pg_net]="primary"
         self.input_nets.remove(pg_net)
+        self.signal_nets.remove(pg_net)
         
     def get_ref(self,inst):
         return(self.ref_list.get(inst.module_name))
@@ -314,6 +346,10 @@ class cell_obj(netlist_obj):
 
 class ref_list_obj(netlist_obj):
     
+    '''
+    stores a list of cells that are instantiated within a module
+    '''
+  
     def __init__(self,parent):
         super().__init__("reference_list",parent)
         
