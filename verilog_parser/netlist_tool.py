@@ -96,6 +96,16 @@ class net_obj(design_obj):
             return("    input {};\n".format(self.id))
         elif self.parent.id == "output_nets":
             return("    output {};\n".format(self.id))
+
+class port_obj(design_obj):
+
+    '''
+    object class for an instance port
+    '''
+   
+    def __init__(self,identifier,parent,net):
+        super().__init__(identifier,parent)
+        self.net = net
    
 class inst_obj(netlist_obj):
     
@@ -122,7 +132,8 @@ class inst_obj(netlist_obj):
         for pg_pin in self.ref_cell.pg_pins:
             self.pg_connections[pg_pin] = self.inst.ports[pg_pin]
         for pin in self.ref_cell.pins:
-            self.signal_connections[pin] = self.parent.signal_nets.get(self.inst.ports[pin])
+            port = port_obj(pin,self,self.parent.signal_nets.get(self.inst.ports[pin]))
+            self.signal_connections[pin] = port
 
     def export_upf(self):
         result_str = ""
@@ -136,7 +147,7 @@ class inst_obj(netlist_obj):
         result_str = ""
         result_str += "    {} {} (".format(self.ref_cell.id,self.id)
         for pin in self.signal_connections:
-            result_str += "\n        .{}({}),".format(pin,self.signal_connections[pin].id)
+            result_str += "\n        .{}({}),".format(pin,self.signal_connections[pin].net.id)
         result_str = result_str[:-1]
         result_str += "\n    );\n\n"
         return(result_str)
