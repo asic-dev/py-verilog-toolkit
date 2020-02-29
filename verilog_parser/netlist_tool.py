@@ -19,7 +19,7 @@ class result_string_obj:
 class design_obj:
 
     '''
-    Generic object class that can be used for design objects that do not have to be iterated
+    Generic object class that store non-iterable design object information
     '''
     def __init__(self,identifier,parent):
         self.id = identifier
@@ -27,6 +27,9 @@ class design_obj:
         self.gen_dict = {}
 
     def gen(self,gen_type):
+        '''
+        execute a generation function that was registered with gen_reg()
+        '''
         if gen_type in self.gen_dict:
             return(self.gen_dict[gen_type]())
 
@@ -45,13 +48,10 @@ class netlist_obj(design_obj):
     
     def __init__(self,identifier,parent):
         super().__init__(identifier,parent)
-#        self.id = identifier
-#        self.__gen_dict = {}
         self.__dict = {}
-#        self.parent = parent
 
-    def add(self,netlist_obj):
-        self.__dict[netlist_obj.id]=netlist_obj
+    def add(self,item):
+        self.__dict[item.id]=item
         
     def remove(self,identifier):
         try:
@@ -90,6 +90,11 @@ class net_obj(design_obj):
     def __init__(self,identifier,parent):
         super().__init__(identifier,parent)
         self.gen_reg("netlist",self.gen_vlog_decl)
+        self.connected_ports=netlist_obj("connected_ports",self)
+        
+    def connect(self,port):
+        print("net_obj.connect: connected net {} with {}.{}".format(self.id,port.parent.id,port.id))
+        self.connected_ports.add(port)
 
     def gen_vlog_decl(self):
         if self.parent.id == "input_nets":
@@ -101,11 +106,19 @@ class port_obj(design_obj):
 
     '''
     object class for an instance port
+    
+    identifier: name of the port
+    parent:     pointer to the instance of the port
+    properties: port properties extracted from .lib of the cell instance
+    net:        pointer to the connected net
     '''
    
-    def __init__(self,identifier,parent,net):
+    def __init__(self,identifier,parent,properties,net):
         super().__init__(identifier,parent)
         self.net = net
+        self.properties = properties
+        print("port_obj: created port {} with properties {}".format(identifier,properties))
+        net.connect(self)
    
 class inst_obj(netlist_obj):
     
@@ -126,14 +139,13 @@ class inst_obj(netlist_obj):
         self.gen_reg("netlist",self.export_netlist)
         
     def resolve_connectivity(self):
-        print ("resolve_connectivity:")
-        for net in self.parent.signal_nets:
-            print(net.id)
         for pg_pin in self.ref_cell.pg_pins:
             self.pg_connections[pg_pin] = self.inst.ports[pg_pin]
         for pin in self.ref_cell.pins:
-            port = port_obj(pin,self,self.parent.signal_nets.get(self.inst.ports[pin]))
-            self.signal_connections[pin] = port
+            self.signal_connections[pin] = port_obj(pin,
+                                                    self,
+                                                    self.ref_cell.pins[pin],
+                                                    self.parent.signal_nets.get(self.inst.ports[pin]))
 
     def export_upf(self):
         result_str = ""
