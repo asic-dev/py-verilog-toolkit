@@ -81,6 +81,29 @@ class netlist_obj(design_obj):
         except IndexError:
             raise StopIteration
 
+class supply_set_obj(design_obj):
+    def __init__(self,parent):
+        super().__init__("SS_", parent)
+        self.power_function = None
+        self.ground_function = None
+        
+    def resolve(self,port):
+        None
+        if self.power_function is None:
+            self.power_function = port.related_power_net
+        else:
+            print("ToDo: implement check that port power function fit to net power function")
+        if self.ground_function is None:
+            self.ground_function = port.related_ground_net
+        else:
+            print("ToDo: implement check that port ground function fit to net ground function")
+
+        self.id = "SS_"+self.power_function+"_"+self.ground_function
+        print("supply_set_obj resolved: {} (id) {} (net) {} (power) {} (ground)".format(self.id,
+                                                                                        self.parent.id,
+                                                                                        self.power_function,
+                                                                                        self.ground_function))
+
 class net_obj(design_obj):
     
     '''
@@ -90,11 +113,13 @@ class net_obj(design_obj):
     def __init__(self,identifier,parent):
         super().__init__(identifier,parent)
         self.gen_reg("netlist",self.gen_vlog_decl)
-        self.connected_ports=netlist_obj("connected_ports",self)
+        self.connected_ports = netlist_obj("connected_ports",self)
+        self.supply_set = supply_set_obj(self)
         
     def connect(self,port):
-        print("net_obj.connect: connected net {} with {}.{}".format(self.id,port.parent.id,port.id))
+#        print("net_obj.connect: connected net {} with {}.{}".format(self.id,port.parent.id,port.id))
         self.connected_ports.add(port)
+        self.supply_set.resolve(port)
 
     def gen_vlog_decl(self):
         if self.parent.id == "input_nets":
@@ -117,7 +142,10 @@ class port_obj(design_obj):
         super().__init__(identifier,parent)
         self.net = net
         self.properties = properties
-        print("port_obj: created port {} with properties {}".format(identifier,properties))
+#        print("port_obj: created port {} with properties {}".format(identifier,properties))
+        self.related_power_net  = parent.pg_connections[properties["related_power_pin"]]
+        self.related_ground_net = parent.pg_connections[properties["related_ground_pin"]]
+#        print("  realted supply:",self.related_power_net)
         net.connect(self)
    
 class inst_obj(netlist_obj):
@@ -385,7 +413,7 @@ class ref_list_obj(netlist_obj):
     def add_lib_ref(self,cell_name,cell):
         try:
             self.get(cell_name).add_lib_ref(cell)
-            print("add_lib_ref:",cell_name)
+#            print("add_lib_ref:",cell_name)
         except:
             None
 
@@ -437,14 +465,12 @@ class netlist_tool:
         if module not in self.module_list:
             raise Exception("module " + module + " does not exist")
         else:
-            print("export UPF of module ",module)
             return(self.module_list[module].export_upf())
             
     def extract(self,module,extract_type):
         if module not in self.module_list:
             raise Exception("module " + module + " does not exist")
         else:
-            print("export UPF of module ",module)
             return(self.module_list[module].extract(extract_type))
         
     def export(self):
