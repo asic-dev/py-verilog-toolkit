@@ -87,8 +87,10 @@ class supply_set_obj(design_obj):
         self.power_function = None
         self.ground_function = None
         
+    def get(self):
+        return({self.id : {"power":self.power_function,"ground":self.ground_function}})
+        
     def resolve(self,port):
-        None
         if self.power_function is None:
             self.power_function = port.related_power_net
         else:
@@ -236,38 +238,7 @@ class module_obj:
         return(self.ref_list.get(inst.module_name))
     
     def get_related_supply_set(self,net):
-        for inst in self.module.module_instances:
-            for port in inst.ports:
-                if inst.ports[port] == net:
-                    ref_cell = self.get_ref(inst)
-                    ref = ref_cell.pins[port]
-                    
-                    # check that related power pin is defined in the liberty file of the connected cell
-                    if "related_power_pin" in ref:
-                        related_power_net = inst.ports[ref["related_power_pin"]]
-                    else:
-                        raise Exception("no related_power_pin defined for pin {} of cell {}".format(port,inst.module_name))
-
-                    # check that related power pin has the primary power pg_type attribute
-                    if not (ref_cell.pg_pins[ref["related_power_pin"]] == "primary_power"):
-                        raise Exception("related_power_pin {} should have the attribute primary_power".format(ref["related_power_pin"]))
-
-                    # check that related ground pin is defined in the liberty file of the connected cell
-                    if "related_ground_pin" in ref:
-                        related_ground_net = inst.ports[ref["related_ground_pin"]]
-                    else:
-                        raise Exception("no related_ground_pin defined for pin {} of cell {}".format(port,inst.module_name))
-
-                    # check that related ground pin has the primary ground pg_type attribute
-                    if not (ref_cell.pg_pins[ref["related_ground_pin"]] == "primary_ground"):
-                        raise Exception("related_ground_pin {} should have the attribute primary_ground and not {}".format(
-                                        ref["related_ground_pin"],
-                                        ref_cell.pg_pins[ref["related_ground_pin"]]))
-
-                    result = {"SS_"+related_power_net+"_"+related_ground_net : {"power":related_power_net,"ground":related_ground_net}}
-                    return(result)
-        print("Error: could not extract supply set of net {}!".format(net))
-        raise
+        return(self.signal_nets.get(net).supply_set.get())
     
     def export_upf(self):
         result = result_string_obj("# export UPF\n\n")
